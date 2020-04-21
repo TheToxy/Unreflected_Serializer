@@ -7,38 +7,42 @@ using System.IO;
 
 namespace UnreflectedSerializer
 {
-
-    public class RootDescriptor<T>
+    public static class XML
     {
-        private readonly string start = "<";
-        private readonly string end = ">";
-        private readonly string close = "/";
+        private static readonly string start = "<";
+        private static readonly string end = ">";
+        private static readonly string close = "/";
 
-        public delegate void Serializer<U>(U instance, TextWriter writter);
-
-        //public List<Serializer<T>> serializer;
-
-        public Serializer<T> actions;        
-
-        public void Serialize(TextWriter writer, T instance)
-        {
-            actions.Invoke(instance, writer);
-        }
-
-        public string EncapsulateAttribute(string attribute, bool closing = false)
+        public static string EncapsulateElement(string attribute, bool closing = false)
         {
             if (closing)
                 return start + close + attribute + end;
             return start + attribute + end;
         }
 
-        public string EncValue(string attribute, string value, bool nested = false)
+        public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
         {
-            return EncapsulateAttribute(attribute) + value + EncapsulateAttribute(attribute, true);
+            writer.WriteLine(XML.EncapsulateElement(valueName) + value + XML.EncapsulateElement(valueName, true));
+        }
+    }
+
+    public class RootDescriptor<T>
+    {
+        private string rootElementName;
+        public RootDescriptor(string rootElementName)
+        {
+            this.rootElementName = rootElementName;
         }
 
-        public string EncValue(string attribute, int value, bool nested = false) =>
-            EncValue(attribute, value.ToString(), nested);
+        public delegate void Serializer(T instance, TextWriter writter);
+        public Serializer actions;
+
+        public void Serialize(TextWriter writer, T instance)
+        {
+            writer.WriteLine(XML.EncapsulateElement(rootElementName));
+            actions(instance, writer);
+            writer.WriteLine(XML.EncapsulateElement(rootElementName, true));
+        }
     }
 
     class Address
@@ -88,90 +92,95 @@ namespace UnreflectedSerializer
 
             rootDesc.Serialize(Console.Out, person);
         }
+        static class PersonDescriptor{
+            public static readonly Dictionary<string, Action<Person, TextWriter, string>> fields = new Dictionary<string, Action<Person, TextWriter, string>>
+            {
+                { "FirstName", (person, writter, fieldName) => XML.SerializeElement(fieldName, person.FirstName, writter)},
+                { "LastName" , (person, writter, fieldName) => XML.SerializeElement(fieldName, person.LastName, writter) },            
+                { "HomeAddress", (p,w,fName) => GetAddressDescriptor(fName).Serialize(w, p.HomeAddress)},
+                { "WorkAddress" , (p,w,fName) => GetAddressDescriptor(fName).Serialize(w, p.WorkAddress)},
+                { "CitizenOf" , (p,w,fName) => GetCountryDescriptor(fName).Serialize(w, p.CitizenOf)},
+                { "MobilePhone" , (p,w,fName) => GetPhoneNumberDescriptor(fName).Serialize(w, p.MobilePhone)}
+            };
+        }
 
-        static RootDescriptor<Person> GetPersonDescriptor()
+        static class AddressDescriptor
         {
-            var rootDesc = new RootDescriptor<Person>();
-            rootDesc.actions = (Person person, TextWriter writter) =>
+            public static readonly Dictionary<string, Action<Address, string, TextWriter>> fields = new Dictionary<string, Action<Address, string, TextWriter>>
             {
-                writter.WriteLine(rootDesc.EncapsulateAttribute("Person"));
-                writter.WriteLine(rootDesc.EncValue("FirstName", person.FirstName));
-                writter.WriteLine(rootDesc.EncValue("LastName", person.LastName));
-            };
-            rootDesc.actions += (Person person, TextWriter writter) =>
-            {
-                var addressDesc = GetAddressDescriptor();
-                writter.WriteLine(rootDesc.EncapsulateAttribute("HomeAddress"));
-                addressDesc.actions(person.HomeAddress, writter);
-                writter.WriteLine(rootDesc.EncapsulateAttribute("HomeAddress", true));
-            };
-            rootDesc.actions += (Person person, TextWriter writter) =>
-            {
-                var addressDesc = GetAddressDescriptor();
-                writter.WriteLine(rootDesc.EncapsulateAttribute("WorkAddress"));
-                addressDesc.actions(person.WorkAddress, writter);
-                writter.WriteLine(rootDesc.EncapsulateAttribute("WorkAddress", true));
-            };
-            rootDesc.actions += (Person person, TextWriter writter) =>
-            {
-                var countryDesc = GetCountryDescriptor();
-                writter.WriteLine(rootDesc.EncapsulateAttribute("CitizenOf"));
-                countryDesc.actions(person.CitizenOf, writter);
-                writter.WriteLine(rootDesc.EncapsulateAttribute("CitizenOf", true));
-            };
-            rootDesc.actions += (Person person, TextWriter writter) =>
-            {
-                var phoneDesc = GetPhoneNumberDescriptor();
-                writter.WriteLine(rootDesc.EncapsulateAttribute("MobilePhone"));
-                phoneDesc.actions(person.MobilePhone, writter);
-                writter.WriteLine(rootDesc.EncapsulateAttribute("MobilePhone", true));
-            };
-            rootDesc.actions += (Person person, TextWriter writter) =>
-            {
-                writter.WriteLine(rootDesc.EncapsulateAttribute("Person", true));
-            };
+                { "Street" ,  (address, fName, writter) => XML.SerializeElement(fName, address.Street, writter) },
+                { "City", (address, fName, writter) => XML.SerializeElement(fName, address.City, writter) },
+            };          
+        }
 
+        static class CountryDescriptor
+        {
+            public static readonly Dictionary<string, Action<Country, string, TextWriter>> fields = new Dictionary<string, Action<Country, string, TextWriter>>
+            {
+                { "Name", (country, fName, writter) => XML.SerializeElement(fName, country.Name, writter) },
+                { "AreaCode" ,  (country, fName, writter) => XML.SerializeElement(fName, country.AreaCode, writter) }
+            };
+        }
+
+        static class PhoneNumberDescriptor
+        {
+            public static readonly Dictionary<string, Action<PhoneNumber, string, TextWriter>> fields = new Dictionary<string, Action<PhoneNumber, string, TextWriter>>
+            {
+                { "Country", (phoneNum, fName, writer) => GetCountryDescriptor(fName).Serialize(writer, phoneNum.Country) },
+                { "Number" , (phoneNum, fName, writer) => XML.SerializeElement(fName, phoneNum.Number, writer) }
+            };
+        }
+
+        static RootDescriptor<Person> GetPersonDescriptor(string elementName = "Person")
+        {          
+            var rootDesc = new RootDescriptor<Person>(elementName);
+            rootDesc.actions = (Person person, TextWriter writter) =>
+            {                
+                foreach (var pair in PersonDescriptor.fields)
+                {
+                    pair.Value(person, writter, pair.Key);
+                }              
+            };
             return rootDesc;
         }
 
-        static RootDescriptor<Address> GetAddressDescriptor()
+        static RootDescriptor<Address> GetAddressDescriptor(string elementName = "Address")
         {
-            var rootDesc = new RootDescriptor<Address>();
+            var rootDesc = new RootDescriptor<Address>(elementName);
             rootDesc.actions = (Address address, TextWriter writter) =>
             {
-                writter.WriteLine(rootDesc.EncValue("Street", address.Street));
-                writter.WriteLine(rootDesc.EncValue("City", address.City));
+                foreach (var pair in AddressDescriptor.fields)
+                {
+                    pair.Value(address, pair.Key, writter);
+                }
             };
 
             return rootDesc;
         }
-        static RootDescriptor<Country> GetCountryDescriptor()
+       
+        static RootDescriptor<Country> GetCountryDescriptor(string elementName = "Country")
         {
-            var rootDesc = new RootDescriptor<Country>();
+            var rootDesc = new RootDescriptor<Country>(elementName);
             rootDesc.actions = (Country country, TextWriter writter) =>
             {
-                writter.WriteLine(rootDesc.EncValue("Name", country.Name));
-                writter.WriteLine(rootDesc.EncValue("AreaCode", country.AreaCode));
+                foreach (var pair in CountryDescriptor.fields)
+                {
+                    pair.Value(country, pair.Key, writter);
+                }
             };
-
             return rootDesc;
         }
 
-        static RootDescriptor<PhoneNumber> GetPhoneNumberDescriptor()
+        static RootDescriptor<PhoneNumber> GetPhoneNumberDescriptor(string elementName = "Country")
         {
-            var rootDesc = new RootDescriptor<PhoneNumber>();
-            rootDesc.actions = (PhoneNumber number, TextWriter writter) =>
+            var rootDesc = new RootDescriptor<PhoneNumber>(elementName);
+            rootDesc.actions = (PhoneNumber phoneNumber, TextWriter writter) =>
             {
-                var coutryDesc = GetCountryDescriptor();
-                writter.WriteLine(rootDesc.EncapsulateAttribute("Country"));
-                coutryDesc.actions(number.Country, writter);
-                writter.WriteLine(rootDesc.EncapsulateAttribute("Country", true));
+                foreach (var pair in PhoneNumberDescriptor.fields)
+                {
+                    pair.Value(phoneNumber, pair.Key, writter);
+                }
             };
-            rootDesc.actions += (PhoneNumber phoneNumber, TextWriter writer) =>
-            {
-                writer.WriteLine( rootDesc.EncValue("Number", phoneNumber.Number));
-            };
-
             return rootDesc;
         }
     }
