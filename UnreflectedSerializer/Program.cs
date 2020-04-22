@@ -12,7 +12,10 @@ namespace UnreflectedSerializer
         /// <param name="tagName"></param>
         /// <param name="closingTag"></param>
         /// <returns></returns>
-        public static string ToTag(string tagName, bool closingTag = false) => closingTag ? $"</{tagName}>" : $"<{tagName}>";
+        public static string ToTag(string tagName, bool closingTag = false)
+        {
+            return closingTag ? $"</{tagName}>" : $"<{tagName}>";
+        }
 
         public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
         {
@@ -86,18 +89,19 @@ namespace UnreflectedSerializer
 
             rootDesc.Serialize(Console.Out, person);
         }
-        
+
         static RootDescriptor<T> GetGenericDescriptor<T>(string elementName, Dictionary<string, Action<T, string, TextWriter>> fieldDescriptor)
         {
-            var rootDesc = new RootDescriptor<T>(elementName);
-            rootDesc.actions = (T instance, TextWriter writer) =>
+            return new RootDescriptor<T>(elementName)
             {
-                foreach (var pair in fieldDescriptor)
+                actions = (T instance, TextWriter writer) =>
                 {
-                    pair.Value(instance, pair.Key, writer);
+                    foreach (var pair in fieldDescriptor)
+                    {
+                        pair.Value(instance, pair.Key, writer);
+                    }
                 }
             };
-            return rootDesc;
         }
 
         static class FieldDescriptor
