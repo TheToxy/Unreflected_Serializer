@@ -15,7 +15,7 @@ namespace UnreflectedSerializer
         /// <param name="tagName"></param>
         /// <param name="closingTag"></param>
         /// <returns></returns>
-        public static string ToTag(string tagName, bool closingTag = false) => closingTag ? $"</${tagName}>" : $"<${tagName}>";
+        public static string ToTag(string tagName, bool closingTag = false) => closingTag ? $"</{tagName}>" : $"<{tagName}>";
 
         public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
         {
