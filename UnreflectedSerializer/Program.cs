@@ -6,22 +6,16 @@ namespace UnreflectedSerializer
 {
     public static class XML
     {
-        private static readonly string start = "<";
-        private static readonly string end = ">";
-        private static readonly string close = "/";
-
-        public static string EncapsulateElement(string attribute, bool closing = false)
+        public static string ToTag(string elementName, bool closing = false)
         {
             if (closing)
-            {
-                return start + close + attribute + end;
-            }
-            return start + attribute + end;
+                return $"</${elementName}>";
+            return $"<${elementName}>";
         }
 
         public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
         {
-            writer.WriteLine(XML.EncapsulateElement(valueName) + value + XML.EncapsulateElement(valueName, true));
+            writer.WriteLine(XML.ToTag(valueName) + value + XML.ToTag(valueName, true));
         }
     }
 
@@ -38,9 +32,9 @@ namespace UnreflectedSerializer
 
         public void Serialize(TextWriter writer, T instance)
         {
-            writer.WriteLine(XML.EncapsulateElement(rootElementName));
+            writer.WriteLine(XML.ToTag(rootElementName));
             actions(instance, writer);
-            writer.WriteLine(XML.EncapsulateElement(rootElementName, true));
+            writer.WriteLine(XML.ToTag(rootElementName, true));
         }
     }
 
