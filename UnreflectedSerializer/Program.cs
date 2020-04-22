@@ -6,12 +6,13 @@ namespace UnreflectedSerializer
 {
     public static class XML
     {
-        public static string ToTag(string elementName, bool closing = false)
-        {
-            if (closing)
-                return $"</${elementName}>";
-            return $"<${elementName}>";
-        }
+        /// <summary>
+        /// Converts tagName to XML tag "element" => "<element>" 
+        /// </summary>
+        /// <param name="tagName"></param>
+        /// <param name="closingTag"></param>
+        /// <returns></returns>
+        public static string ToTag(string tagName, bool closingTag = false) => closingTag ? $"</${tagName}>" : $"<${tagName}>";
 
         public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
         {
