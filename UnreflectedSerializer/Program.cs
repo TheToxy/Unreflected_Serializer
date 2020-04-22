@@ -9,12 +9,6 @@ namespace UnreflectedSerializer
 {
     public static class XML
     {
-        /// <summary>
-        /// Converts tagName to XML tag "element" => "<element>" 
-        /// </summary>
-        /// <param name="tagName"></param>
-        /// <param name="closingTag"></param>
-        /// <returns></returns>
         public static string ToTag(string tagName, bool closingTag = false) => closingTag ? $"</{tagName}>" : $"<{tagName}>";
 
         public static void SerializeElement<U>(string valueName, U value, TextWriter writer)
@@ -89,53 +83,15 @@ namespace UnreflectedSerializer
 
             rootDesc.Serialize(Console.Out, person);
         }
-        static class PersonDescriptor{
-            public static readonly Dictionary<string, Action<Person, TextWriter, string>> fields = new Dictionary<string, Action<Person, TextWriter, string>>
-            {
-                { "FirstName", (person, writter, fieldName) => XML.SerializeElement(fieldName, person.FirstName, writter)},
-                { "LastName" , (person, writter, fieldName) => XML.SerializeElement(fieldName, person.LastName, writter) },            
-                { "HomeAddress", (p,w,fName) => GetAddressDescriptor(fName).Serialize(w, p.HomeAddress)},
-                { "WorkAddress" , (p,w,fName) => GetAddressDescriptor(fName).Serialize(w, p.WorkAddress)},
-                { "CitizenOf" , (p,w,fName) => GetCountryDescriptor(fName).Serialize(w, p.CitizenOf)},
-                { "MobilePhone" , (p,w,fName) => GetPhoneNumberDescriptor(fName).Serialize(w, p.MobilePhone)}
-            };
-        }
-
-        static class AddressDescriptor
-        {
-            public static readonly Dictionary<string, Action<Address, string, TextWriter>> fields = new Dictionary<string, Action<Address, string, TextWriter>>
-            {
-                { "Street" ,  (address, fName, writter) => XML.SerializeElement(fName, address.Street, writter) },
-                { "City", (address, fName, writter) => XML.SerializeElement(fName, address.City, writter) },
-            };          
-        }
-
-        static class CountryDescriptor
-        {
-            public static readonly Dictionary<string, Action<Country, string, TextWriter>> fields = new Dictionary<string, Action<Country, string, TextWriter>>
-            {
-                { "Name", (country, fName, writter) => XML.SerializeElement(fName, country.Name, writter) },
-                { "AreaCode" ,  (country, fName, writter) => XML.SerializeElement(fName, country.AreaCode, writter) }
-            };
-        }
-
-        static class PhoneNumberDescriptor
-        {
-            public static readonly Dictionary<string, Action<PhoneNumber, string, TextWriter>> fields = new Dictionary<string, Action<PhoneNumber, string, TextWriter>>
-            {
-                { "Country", (phoneNum, fName, writer) => GetCountryDescriptor(fName).Serialize(writer, phoneNum.Country) },
-                { "Number" , (phoneNum, fName, writer) => XML.SerializeElement(fName, phoneNum.Number, writer) }
-            };
-        }
 
         static RootDescriptor<Person> GetPersonDescriptor(string elementName = "Person")
         {          
             var rootDesc = new RootDescriptor<Person>(elementName);
             rootDesc.actions = (Person person, TextWriter writter) =>
             {                
-                foreach (var pair in PersonDescriptor.fields)
+                foreach (var pair in FieldDescriptor.person)
                 {
-                    pair.Value(person, writter, pair.Key);
+                    pair.Value(person, pair.Key, writter);
                 }              
             };
             return rootDesc;
@@ -146,7 +102,7 @@ namespace UnreflectedSerializer
             var rootDesc = new RootDescriptor<Address>(elementName);
             rootDesc.actions = (Address address, TextWriter writter) =>
             {
-                foreach (var pair in AddressDescriptor.fields)
+                foreach (var pair in FieldDescriptor.address)
                 {
                     pair.Value(address, pair.Key, writter);
                 }
@@ -160,7 +116,7 @@ namespace UnreflectedSerializer
             var rootDesc = new RootDescriptor<Country>(elementName);
             rootDesc.actions = (Country country, TextWriter writter) =>
             {
-                foreach (var pair in CountryDescriptor.fields)
+                foreach (var pair in FieldDescriptor.country)
                 {
                     pair.Value(country, pair.Key, writter);
                 }
@@ -173,12 +129,42 @@ namespace UnreflectedSerializer
             var rootDesc = new RootDescriptor<PhoneNumber>(elementName);
             rootDesc.actions = (PhoneNumber phoneNumber, TextWriter writter) =>
             {
-                foreach (var pair in PhoneNumberDescriptor.fields)
+                foreach (var pair in FieldDescriptor.phoneNumber)
                 {
                     pair.Value(phoneNumber, pair.Key, writter);
                 }
             };
             return rootDesc;
+        }
+
+        static class FieldDescriptor
+        {
+            public static readonly Dictionary<string, Action<Person, string, TextWriter>> person = new Dictionary<string, Action<Person, string, TextWriter>>
+            {
+                { "FirstName",      (person, fieldName, writer) => XML.SerializeElement(fieldName, person.FirstName, writer)},
+                { "LastName" ,      (person, fieldName, writer) => XML.SerializeElement(fieldName, person.LastName, writer) },
+                { "HomeAddress",    (person, fieldName, writer) => GetAddressDescriptor(fieldName).Serialize(writer, person.HomeAddress)},
+                { "WorkAddress",    (person, fieldName, writer) => GetAddressDescriptor(fieldName).Serialize(writer, person.WorkAddress)},
+                { "CitizenOf",      (person, fieldName, writer) => GetCountryDescriptor(fieldName).Serialize(writer, person.CitizenOf)},
+                { "MobilePhone" ,   (person, fieldName, writer) => GetPhoneNumberDescriptor(fieldName).Serialize(writer, person.MobilePhone)},
+            };
+
+            public static readonly Dictionary<string, Action<Address, string, TextWriter>> address = new Dictionary<string, Action<Address, string, TextWriter>>
+            {
+                { "Street",     (address, fName, writer) => XML.SerializeElement(fName, address.Street, writer) },
+                { "City",       (address, fName, writer) => XML.SerializeElement(fName, address.City, writer) },
+            };
+
+            public static readonly Dictionary<string, Action<Country, string, TextWriter>> country = new Dictionary<string, Action<Country, string, TextWriter>>
+            {
+                { "Name",       (country, fName, writer) => XML.SerializeElement(fName, country.Name, writer) },
+                { "AreaCode",   (country, fName, writer) => XML.SerializeElement(fName, country.AreaCode, writer) }
+            };
+            public static readonly Dictionary<string, Action<PhoneNumber, string, TextWriter>> phoneNumber = new Dictionary<string, Action<PhoneNumber, string, TextWriter>>
+            {
+                { "Country",    (phoneNum, fName, writer) => GetCountryDescriptor(fName).Serialize(writer, phoneNum.Country) },
+                { "Number",     (phoneNum, fName, writer) => XML.SerializeElement(fName, phoneNum.Number, writer) }
+            };
         }
     }
 }
